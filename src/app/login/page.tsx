@@ -29,18 +29,18 @@ export default async function LoginPage({
         </div>
 
         <Card>
-          <CardContent className="pt-6 space-y-4">
+          <CardContent className="pt-2 space-y-4">
             {/* LinkedIn OAuth */}
             <LinkedInButton mode="login" />
 
-            <div className="relative">
+            {/* <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-background px-2 text-muted-foreground">or continue with email</span>
               </div>
-            </div>
+            </div> */}
 
             {error && (
               <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">
@@ -48,7 +48,7 @@ export default async function LoginPage({
               </p>
             )}
 
-            <form action={signIn} className="space-y-4">
+            {/* <form action={signIn} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input id="email" name="email" type="email" placeholder="you@example.com" required />
@@ -58,7 +58,7 @@ export default async function LoginPage({
                 <Input id="password" name="password" type="password" placeholder="••••••••" required />
               </div>
               <Button type="submit" className="w-full">Sign in</Button>
-            </form>
+            </form> */}
           </CardContent>
         </Card>
 

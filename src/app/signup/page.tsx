@@ -25,17 +25,17 @@ export default async function SignupPage({
         </div>
 
         <Card>
-          <CardContent className="pt-6 space-y-4">
+          <CardContent className="pt-2 space-y-4">
             <LinkedInButton mode="signup" />
 
-            <div className="relative">
+            {/* <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-background px-2 text-muted-foreground">or sign up with email</span>
               </div>
-            </div>
+            </div> */}
 
             {error && (
               <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">
@@ -43,7 +43,7 @@ export default async function SignupPage({
               </p>
             )}
 
-            <form action={signUp} className="space-y-4">
+            {/* <form action={signUp} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="fullName">Full name</Label>
                 <Input id="fullName" name="fullName" placeholder="Alex Johnson" required />
@@ -57,7 +57,7 @@ export default async function SignupPage({
                 <Input id="password" name="password" type="password" placeholder="At least 8 characters" minLength={8} required />
               </div>
               <Button type="submit" className="w-full">Create account</Button>
-            </form>
+            </form> */}
           </CardContent>
         </Card>
 
