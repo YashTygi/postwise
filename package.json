@@ -6,10 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:push": "drizzle-kit push",
+    "check:sources": "node scripts/check-sources.mjs",
+    "bot:dev": "node scripts/dev-bot.mjs",
+    "db:migrate": "node scripts/db-apply.mjs drizzle/0001_postwise_pipeline.sql",
+    "db:inspect": "node scripts/db-inspect.mjs"
   },
   "dependencies": {
-    "@google-cloud/vertexai": "^1.10.4",
     "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.101.1",
     "@types/pg": "^8.20.0",

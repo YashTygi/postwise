@@ -1,0 +1,33 @@
+# Free scheduler. Vercel's Hobby plan only fires crons once a day; GitHub
+# Actions has no such limit and costs nothing. Both are wired up — delete
+# whichever one you don't want.
+#
+# Add repo secrets: POSTWISE_URL (https://your-app.vercel.app), CRON_SECRET
+name: postwise cron
+
+on:
+  schedule:
+    - cron: '30 14 * * *'   # 20:00 IST daily — commits, trends, check-in
+    - cron: '0 5 * * 0'     # 10:30 IST Sunday — weekly angles
+  workflow_dispatch:
+    inputs:
+      job:
+        description: job to run
+        default: daily
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: pick job
+        id: job
+        run: |
+          if [ "${{ github.event.schedule }}" = "0 5 * * 0" ]; then
+            echo "name=weekly" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${{ inputs.job || 'daily' }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: trigger
+        run: |
+          curl -sS --fail-with-body --max-time 120 \
+            "${{ secrets.POSTWISE_URL }}/api/cron?job=${{ steps.job.outputs.name }}&secret=${{ secrets.CRON_SECRET }}"
