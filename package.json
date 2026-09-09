@@ -11,7 +11,8 @@
     "check:sources": "node scripts/check-sources.mjs",
     "bot:dev": "node scripts/dev-bot.mjs",
     "db:migrate": "node scripts/db-apply.mjs drizzle/0001_postwise_pipeline.sql",
-    "db:inspect": "node scripts/db-inspect.mjs"
+    "db:inspect": "node scripts/db-inspect.mjs",
+    "db:url": "node scripts/set-db-url.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.0",
