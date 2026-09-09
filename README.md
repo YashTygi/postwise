@@ -95,7 +95,7 @@ Copy `.env.example` to `.env.local` and fill it in.
 | Variable | Where to get it | Cost |
 |---|---|---|
 | `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_*` | supabase.com project settings | free |
-| `GEMINI_API_KEY` | aistudio.google.com/apikey | free tier, no billing account |
+| `GEMINI_API_KEY` | aistudio.google.com/apikey | free tier — see the quota note below |
 | `TELEGRAM_BOT_TOKEN` | @BotFather → `/newbot` | free |
 | `TELEGRAM_WEBHOOK_SECRET` | `openssl rand -hex 32` | — |
 | `CRON_SECRET` | `openssl rand -hex 32` | — |
@@ -250,6 +250,32 @@ GET /api/cron?job=weekly   # Sunday's post angles
 
 Times in both files are UTC and set for 20:00 / 10:30 IST. Change them to your
 own evening.
+
+### The one real constraint: Gemini's free tier
+
+**20 requests per day, per model.** Not per minute — per day. And pro models
+have no free quota at all: `gemini-2.5-pro` is retired for new keys, and
+`gemini-3.1-pro-preview` answers 429 until billing is on. Everything here runs
+on `gemini-2.5-flash`.
+
+The jobs are budgeted around that ceiling:
+
+| Job | Calls |
+|---|---|
+| Daily: trend scoring, check-in, draft top-up | 3 |
+| Weekly: repo summaries (batched into one), angles | 2 |
+| Each voice note, rewrite or compose | 1 |
+
+So roughly 3/day baseline, leaving 17 for interaction. Repo summaries are
+batched into a single request and skipped entirely for repos whose `pushed_at`
+has not moved, because one-call-per-repo spent the whole day's budget before the
+check-in ever ran.
+
+If you hit the ceiling regularly, enable billing on the AI Studio key. Flash is
+priced in cents per million tokens — realistically pennies a month at this
+volume — and setting `GEMINI_PRO_MODEL=gemini-3.1-pro-preview` then makes drafts
+noticeably better. The code falls back to flash automatically if a configured
+model returns 404 or 429, so nothing breaks either way.
 
 ### Running total: ₹0
 

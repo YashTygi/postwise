@@ -27,34 +27,55 @@ async function readme(fullName: string, token?: string): Promise<string> {
  * README never leaves your infrastructure, because it is your employer's, not
  * yours, and this pipeline's output is public posts.
  */
-async function summarize(r: {
-  full_name: string; description: string | null; language: string | null; topics?: string[]
-}, body: string, confidential: boolean): Promise<RepoSummary> {
-  return askJson<RepoSummary>(`Summarise this repository so someone can write about the work.
-
+/**
+ * Understand repos well enough to write about them.
+ *
+ * Batched into ONE call for all stale repos: the Gemini free tier allows 20
+ * requests per day per model, so one-call-per-repo would spend the whole budget
+ * before the check-in ever ran.
+ *
+ * Confidential accounts send metadata only — name, language, topics. Their
+ * README never leaves your infrastructure, because it is your employer's, not
+ * yours, and this pipeline's output is public posts.
+ */
+async function summarizeBatch(
+  items: { r: { full_name: string; description: string | null; language: string | null; topics?: string[] }; body: string }[],
+  confidential: boolean,
+): Promise<Record<string, RepoSummary>> {
+  const blocks = items.map(({ r, body }, i) => `### Repository ${i}
 Name: ${confidential ? '(withheld — confidential project)' : r.full_name}
 Description: ${r.description ?? '(none)'}
 Primary language: ${r.language ?? 'unknown'}
 Topics: ${(r.topics ?? []).join(', ') || '(none)'}
-${body ? `\nREADME:\n${body}` : '\n(README withheld — confidential project, judge from metadata alone)'}
+${body ? `README:\n${body}` : '(README withheld — confidential project, judge from metadata alone)'}`).join('\n\n')
 
-Return JSON:
-{
-  "purpose": "one sentence on what this project is and who it is for",
-  "stack": ["concrete technologies actually used"],
+  const out = await askJson<{ i: number; purpose: string; stack: string[]; notable: string[]; postAngles: string[] }[]>(
+`Summarise each repository below so someone can write about the work.
+
+${blocks}
+
+Return a JSON array with one object per repository:
+[{"i": <the repository number>, "purpose": "one sentence on what it is and who for",
+  "stack": ["technologies actually used"],
   "notable": ["technical decisions or problems worth discussing, max 4"],
-  "postAngles": ["specific things worth writing a post about, max 4"]
-}
-${confidential ? '\nThis is confidential work. Never name the company, client, product or repo. Describe the technical shape of the work only.' : ''}`)
-}
+  "postAngles": ["specific things worth writing a post about, max 4"]}]
+${confidential ? '\nThese are confidential. Never name the company, client, product or repo. Describe the technical shape of the work only.' : ''}`)
 
-// drizzle wants the EXCLUDED reference spelled out for upserts
-const sqlExcluded = (col: string) => sql.raw(`excluded.${col}`)
+  const byIndex: Record<string, RepoSummary> = {}
+  for (const o of out) {
+    const item = items[o.i]
+    if (item) byIndex[item.r.full_name] = { purpose: o.purpose, stack: o.stack, notable: o.notable, postAngles: o.postAngles }
+  }
+  return byIndex
+}
 
 /**
  * Sync repos touched in the last `days` and summarise the ones that changed.
  * A repo whose pushed_at is unchanged since the last summary is skipped.
  */
+// drizzle wants the EXCLUDED reference spelled out for upserts
+const sqlExcluded = (col: string) => sql.raw(`excluded.${col}`)
+
 export async function ingestRepos(userId: string, account: GithubAccount, days = 90): Promise<number> {
   const token = tokenFor(account.label)
   const found = await recentRepos(account, days)
@@ -86,23 +107,33 @@ export async function ingestRepos(userId: string, account: GithubAccount, days =
     },
   })
 
-  // ponytail: summarising is the expensive half — 4 per run keeps the cron
-  // inside its 60s budget, and unchanged repos are skipped entirely, so a
-  // backlog drains over a few days and then costs nothing.
-  const stale = found.filter(r => seen.get(r.full_name) !== r.pushed_at).slice(0, 4)
+  // ponytail: 6 repos per run, in a single request. Unchanged repos are skipped
+  // entirely, so a backlog drains over a few days and then costs nothing.
+  const stale = found.filter(r => seen.get(r.full_name) !== r.pushed_at).slice(0, 6)
+  if (stale.length === 0) return 0
+
   let summarised = 0
-  for (const r of stale) {
-    try {
-      const body = account.confidential ? '' : await readme(r.full_name, token)
-      const summary = await summarize(r, body, account.confidential)
+  try {
+    const bodies = await Promise.all(stale.map(async r => ({
+      r,
+      body: account.confidential ? '' : await readme(r.full_name, token),
+    })))
+    const summaries = await summarizeBatch(bodies, account.confidential)
+
+    for (const r of stale) {
+      const summary = summaries[r.full_name]
+      if (!summary) continue
       await db.update(repos)
         .set({ summary, summaryOfSha: r.pushed_at })
         .where(and(eq(repos.userId, userId), eq(repos.fullName, r.full_name)))
       summarised++
-    } catch (err) {
-      console.error(`repo summary failed for ${r.full_name}:`, err)
     }
+  } catch (err) {
+    // Out of quota or a bad response: metadata is already stored, so the next
+    // run picks these up. Never fail the whole cron over summaries.
+    console.error('repo summary batch failed:', err)
   }
+
   return summarised
 }
 

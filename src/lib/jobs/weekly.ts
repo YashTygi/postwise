@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
 import { commits, dailyEntries, posts, trendItems, userProfiles, type UserProfile } from '@/lib/db/schema'
 import { and, count, desc, eq, gte, inArray, isNotNull } from 'drizzle-orm'
-import { ask, askJson } from '@/lib/ai'
+import { QUALITY, ask, askJson } from '@/lib/ai'
 import { send } from '@/lib/telegram'
 import { recentCommits, summarizeCommits } from './github'
 import { repoContext } from './repos'
@@ -131,7 +131,7 @@ HARD RULES:
   React performance" and something someone actually wants to read.
 - Invent nothing. If a fact is not in the source material above, it does not go in the post.
 - No hashtags. No "Here's the thing". No "game-changer". No engagement bait.
-- Output the post text only — no title, no commentary, no markdown fences.`, 'gemini-2.5-pro')
+- Output the post text only — no title, no commentary, no markdown fences.`, QUALITY)
 
   const [row] = await db.insert(posts).values({
     userId: user.id,
@@ -168,7 +168,7 @@ FEEDBACK: ${feedback}
 
 ${brief.text}
 
-Output the rewritten post only.`, 'gemini-2.5-pro')
+Output the rewritten post only.`, QUALITY)
 
   const [updated] = await db.update(posts)
     // back to pending_review: a reworked draft is alive again, rejected or not
@@ -261,7 +261,7 @@ HARD RULES:
   a real number, a real file or project. Invent nothing.
 - If the source material cannot support what I asked for, say so in one line
   instead of padding it out.
-- Output the content only — no preamble, no markdown fences.`, 'gemini-2.5-pro')
+- Output the content only — no preamble, no markdown fences.`, QUALITY)
 
   const [row] = await db.insert(posts).values({
     userId: user.id,

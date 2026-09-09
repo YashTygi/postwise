@@ -36,13 +36,18 @@ export async function GET(req: Request) {
     const entry: Record<string, unknown> = { user: user.email }
     try {
       if (job === 'weekly') {
+        // Repo summaries live here, not in the daily run: a project's character
+        // does not change day to day, and the free Gemini tier allows only 20
+        // requests per day per model.
+        for (const account of await usableAccounts(user.id)) {
+          entry[`repos:${account.label}`] = await ingestRepos(user.id, account)
+        }
         entry.angles = await proposeAngles(user)
       } else if (job === 'drafts') {
         entry.queue = await topUpQueue(user)
       } else {
         for (const account of await usableAccounts(user.id)) {
           entry[`commits:${account.label}`] = await ingestCommits(user.id, account)
-          entry[`repos:${account.label}`] = await ingestRepos(user.id, account)
         }
         entry.trends = await ingestTrends(user.id)
         entry.checkin = await sendCheckin(user)
