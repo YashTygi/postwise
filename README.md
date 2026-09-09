@@ -66,11 +66,22 @@ deleted after ~90 days paused — if yours has been quiet, it is gone and you
 need a new one (supabase.com → New project). Copy the project URL, anon key
 and connection string into `.env.local`.
 
+**Use the pooler connection string, not the direct one.** Supabase's direct host
+(`db.<ref>.supabase.co`) publishes AAAA records only. That works from a laptop
+with IPv6 and fails on Vercel, which is IPv4-only — so a direct URL passes every
+local test and then breaks the moment you deploy. Take the string from
+**Connect → Transaction pooler**; note the username gains the project ref:
+
+```
+postgresql://postgres.<ref>:<password>@aws-N-<region>.pooler.supabase.com:6543/postgres
+```
+
 Then:
 
 ```bash
-npm run db:migrate     # applies drizzle/0001_postwise_pipeline.sql in one transaction
-npm run db:inspect     # print the resulting schema
+npm run db:migrate                                  # base pipeline tables
+node scripts/db-apply.mjs drizzle/0002_repos_and_accounts.sql
+npm run db:inspect                                  # print the resulting schema
 ```
 
 Purely additive — no drops, no type changes. `npm run db:migrate -- --dry`

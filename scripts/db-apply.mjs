@@ -32,9 +32,9 @@ await import('node:dns/promises').then(dns => dns.lookup(host)).catch(() => {
   console.error('    Check the dashboard — if the project is gone, make a new one')
   console.error('    and replace NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY')
   console.error('    and DATABASE_URL. All three, or auth and the database disagree.\n')
-  console.error('  · Direct connections (db.<ref>.supabase.co) are IPv6-only.')
-  console.error('    Use the Session pooler string instead:')
-  console.error('    postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:5432/postgres')
+  console.error('  · Direct connections (db.<ref>.supabase.co) publish AAAA records only.')
+  console.error('    Use the pooler string instead — it has IPv4, which Vercel needs:')
+  console.error('    postgresql://postgres.<ref>:<pw>@aws-N-<region>.pooler.supabase.com:6543/postgres')
   process.exit(1)
 })
 
