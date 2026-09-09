@@ -62,12 +62,17 @@ export async function GET(req: Request) {
     log.push(entry)
   }
 
-  // Return 500 when any user's run errored. A 200 with the error buried in the
-  // body makes the GitHub Actions step green, which is how a broken drafts job
-  // ran unnoticed.
-  const failed = log.filter(l => l.error)
+  // Running out of Gemini's 20-a-day free quota is expected and transient; a
+  // broken job is not. Only the second should turn the scheduler red, or the
+  // red stops meaning anything.
+  const errors = log.filter(l => l.error).map(l => String(l.error))
+  const quotaOnly = errors.length > 0 && errors.every(e => e.includes('429'))
+  const broken = errors.length > 0 && !quotaOnly
+
+  if (quotaOnly) console.warn(`cron ${job}: out of Gemini quota, skipping until it resets`)
+
   return NextResponse.json(
-    { ok: failed.length === 0, job, ran: log },
-    { status: failed.length ? 500 : 200 },
+    { ok: errors.length === 0, job, quotaExhausted: quotaOnly || undefined, ran: log },
+    { status: broken ? 500 : 200 },
   )
 }
