@@ -29,17 +29,41 @@ jobs:
           fi
       - name: trigger
         run: |
-          ./.github/run-job.sh "${{ steps.job.outputs.name }}"
-        env:
-          POSTWISE_URL: ${{ secrets.POSTWISE_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          set -uo pipefail
+          body=$(curl -sS --max-time 120 -w '\n%{http_code}' \
+            "${{ secrets.POSTWISE_URL }}/api/cron?job=${{ steps.job.outputs.name }}&secret=${{ secrets.CRON_SECRET }}")
+          status=$(tail -n1 <<<"$body")
+          payload=$(sed '$d' <<<"$body")
+          echo "$payload"
+          # Spent free-tier quota is expected and transient; only real breakage
+          # should turn the run red, or red stops meaning anything.
+          if grep -q '"quotaExhausted":true' <<<"$payload"; then
+            echo "::warning title=Gemini quota::${{ steps.job.outputs.name }}: daily free-tier quota is spent, resumes after Google resets it"
+            exit 0
+          fi
+          if [ "$status" != "200" ]; then
+            echo "::error title=Cron failed::${{ steps.job.outputs.name }} returned HTTP $status"
+            exit 1
+          fi
 
       # Draft top-up is a separate call: repo summarising and draft generation
       # together do not fit in one 60s serverless invocation.
       - name: top up drafts
         if: steps.job.outputs.name == 'daily'
         run: |
-          ./.github/run-job.sh drafts
-        env:
-          POSTWISE_URL: ${{ secrets.POSTWISE_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          set -uo pipefail
+          body=$(curl -sS --max-time 120 -w '\n%{http_code}' \
+            "${{ secrets.POSTWISE_URL }}/api/cron?job=drafts&secret=${{ secrets.CRON_SECRET }}")
+          status=$(tail -n1 <<<"$body")
+          payload=$(sed '$d' <<<"$body")
+          echo "$payload"
+          # Spent free-tier quota is expected and transient; only real breakage
+          # should turn the run red, or red stops meaning anything.
+          if grep -q '"quotaExhausted":true' <<<"$payload"; then
+            echo "::warning title=Gemini quota::drafts: daily free-tier quota is spent, resumes after Google resets it"
+            exit 0
+          fi
+          if [ "$status" != "200" ]; then
+            echo "::error title=Cron failed::drafts returned HTTP $status"
+            exit 1
+          fi
