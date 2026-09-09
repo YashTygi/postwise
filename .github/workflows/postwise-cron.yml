@@ -31,3 +31,11 @@ jobs:
         run: |
           curl -sS --fail-with-body --max-time 120 \
             "${{ secrets.POSTWISE_URL }}/api/cron?job=${{ steps.job.outputs.name }}&secret=${{ secrets.CRON_SECRET }}"
+
+      # Draft top-up is a separate call: repo summarising and draft generation
+      # together do not fit in one 60s serverless invocation.
+      - name: top up drafts
+        if: steps.job.outputs.name == 'daily'
+        run: |
+          curl -sS --fail-with-body --max-time 120 \
+            "${{ secrets.POSTWISE_URL }}/api/cron?job=drafts&secret=${{ secrets.CRON_SECRET }}"

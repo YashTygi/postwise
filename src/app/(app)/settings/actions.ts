@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { styleReferences, userProfiles } from '@/lib/db/schema'
+import { githubAccounts, styleReferences, userProfiles } from '@/lib/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { currentUser } from '@/lib/auth'
@@ -59,5 +59,33 @@ export async function unlinkTelegram() {
   const { profile } = await currentUser()
   await db.update(userProfiles).set({ telegramChatId: null, pendingContext: null })
     .where(eq(userProfiles.id, profile.id))
+  revalidatePath('/settings')
+}
+
+
+export async function addGithubAccount(formData: FormData) {
+  const { profile } = await currentUser()
+  const label = ((formData.get('label') as string) || '').trim().toLowerCase()
+  const username = ((formData.get('username') as string) || '').trim()
+  if (!label || !username) return
+
+  await db.insert(githubAccounts).values({
+    userId: profile.id,
+    label,
+    username,
+    confidential: formData.get('confidential') === 'on',
+  }).onConflictDoUpdate({
+    target: [githubAccounts.userId, githubAccounts.label],
+    set: { username, confidential: formData.get('confidential') === 'on', active: true },
+  })
+  revalidatePath('/settings')
+}
+
+export async function removeGithubAccount(formData: FormData) {
+  const { profile } = await currentUser()
+  await db.delete(githubAccounts).where(and(
+    eq(githubAccounts.id, formData.get('id') as string),
+    eq(githubAccounts.userId, profile.id),
+  ))
   revalidatePath('/settings')
 }

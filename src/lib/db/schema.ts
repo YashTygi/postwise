@@ -91,6 +91,54 @@ export const styleReferences = pgTable('style_references', {
 })
 
 // ─────────────────────────────────────────────
+// GitHub accounts — personal, work, whatever else.
+//
+// Tokens are deliberately NOT stored here. Each account resolves its token from
+// GITHUB_TOKEN_<LABEL> in the environment, so a work PAT never sits in a
+// database row. `confidential` marks an account whose repo names, paths and
+// client details must never reach a generated draft.
+// ─────────────────────────────────────────────
+export const githubAccounts = pgTable('github_accounts', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  userId:       uuid('user_id')
+                  .references(() => userProfiles.id, { onDelete: 'cascade' })
+                  .notNull(),
+  label:        text('label').notNull(),        // 'personal' | 'work' | anything
+  username:     text('username').notNull(),
+  confidential: boolean('confidential').default(false).notNull(),
+  active:       boolean('active').default(true).notNull(),
+  lastSyncedAt: timestamp('last_synced_at'),
+  createdAt:    timestamp('created_at').defaultNow(),
+}, t => [unique('github_account_user_label').on(t.userId, t.label)])
+
+// ─────────────────────────────────────────────
+// Repositories — what you are building, as opposed to individual commits.
+// A commit says "fixed jank on fast scroll". A repo says "a virtualised
+// dashboard for X". Posts need both.
+// ─────────────────────────────────────────────
+export const repos = pgTable('repos', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  userId:       uuid('user_id')
+                  .references(() => userProfiles.id, { onDelete: 'cascade' })
+                  .notNull(),
+  accountId:    uuid('account_id').references(() => githubAccounts.id, { onDelete: 'cascade' }),
+  fullName:     text('full_name').notNull(),    // "owner/name"
+  description:  text('description'),
+  language:     text('language'),
+  topics:       text('topics').array(),
+  isPrivate:    boolean('is_private').default(false),
+  confidential: boolean('confidential').default(false).notNull(),
+
+  // LLM-extracted from README + description + languages:
+  // { purpose, stack[], notable[], postAngles[] }
+  summary:      jsonb('summary'),
+  summaryOfSha: text('summary_of_sha'),         // pushedAt we summarised at; skip if unchanged
+
+  pushedAt:     timestamp('pushed_at'),
+  lastSyncedAt: timestamp('last_synced_at').defaultNow(),
+}, t => [unique('repo_user_name').on(t.userId, t.fullName)])
+
+// ─────────────────────────────────────────────
 // GitHub commits — the "what did you actually do" signal
 // Full diffs are deliberately NOT stored: filenames + message + line
 // counts carry the signal without burning context.
@@ -100,8 +148,10 @@ export const commits = pgTable('commits', {
   userId:      uuid('user_id')
                  .references(() => userProfiles.id, { onDelete: 'cascade' })
                  .notNull(),
+  accountId:   uuid('account_id').references(() => githubAccounts.id, { onDelete: 'cascade' }),
   sha:         text('sha').notNull(),
   repo:        text('repo').notNull(),          // "owner/name"
+  confidential: boolean('confidential').default(false).notNull(),
   message:     text('message').notNull(),
   files:       jsonb('files'),                  // string[] of changed paths
   additions:   integer('additions').default(0),
@@ -171,6 +221,9 @@ export const posts = pgTable('posts', {
   // draft_generated → pending_review → approved / rejected / needs_revision
   status:          text('status').default('draft_generated'),
 
+  // 'weekly' | 'auto' (daily queue top-up) | 'compose' (you asked for this one)
+  origin:          text('origin').default('weekly'),
+  brief:           text('brief'),                // your instructions, for compose
   rewriteCount:    integer('rewrite_count').default(0),
   rewriteFeedback: text('rewrite_feedback'),
   scheduledFor:    timestamp('scheduled_for'),
@@ -188,4 +241,6 @@ export type StyleReference    = typeof styleReferences.$inferSelect
 export type Post              = typeof posts.$inferSelect
 export type DailyEntry        = typeof dailyEntries.$inferSelect
 export type Commit            = typeof commits.$inferSelect
+export type GithubAccount     = typeof githubAccounts.$inferSelect
+export type Repo              = typeof repos.$inferSelect
 export type TrendItem         = typeof trendItems.$inferSelect

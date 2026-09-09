@@ -14,7 +14,7 @@ Runs on free tiers only. No server to keep alive.
 ## How it works
 
 ```
-GitHub events ─┐
+GitHub repos ──┐
 Trend feeds  ──┼─→ Postgres ──→ weekly generation ──→ Telegram approval ──→ drafts
 Your answers ──┤                      ↑
 Style rubrics ─┘                      │
@@ -88,7 +88,7 @@ Copy `.env.example` to `.env.local` and fill it in.
 | `TELEGRAM_BOT_TOKEN` | @BotFather → `/newbot` | free |
 | `TELEGRAM_WEBHOOK_SECRET` | `openssl rand -hex 32` | — |
 | `CRON_SECRET` | `openssl rand -hex 32` | — |
-| `GITHUB_TOKEN` | Classic PAT, `repo` scope — needed for private commits | free |
+| `GITHUB_TOKEN`, `GITHUB_TOKEN_WORK` | Classic PAT per account, `repo` scope — needed for private repos | free |
 
 ### 3. Deploy
 
@@ -251,6 +251,33 @@ stop the cron for a week, unpause the project from the Supabase dashboard.
 
 ---
 
+## Multiple GitHub accounts
+
+Add them on `/settings` — a label, a username, and a confidential flag. The
+label picks the token: `work` reads `GITHUB_TOKEN_WORK`, `personal` reads
+`GITHUB_TOKEN_PERSONAL` (or plain `GITHUB_TOKEN`).
+
+**Tokens are never stored in the database.** A work PAT grants access to your
+employer's private code; a Postgres row you can read over the public internet
+is not where it belongs. Vercel encrypts env vars at rest.
+
+**Confidential accounts are handled differently at every step:**
+
+| | Normal account | Confidential account |
+|---|---|---|
+| Repo metadata | stored | stored |
+| README sent to Gemini | yes | **no** — metadata only |
+| Repo name in prompts | yes | `(confidential work project)` |
+| File paths in prompts | yes | stripped |
+| Nameable in a draft | yes | forbidden by prompt rule |
+
+What survives is the shape of the work — "debugged a race in a job queue under
+load" — which is what makes a good post anyway. What does not survive is
+anything that identifies your employer, client, or codebase. Leave the flag on
+unless you are certain a repo is public.
+
+---
+
 ## Using it
 
 In Telegram:
@@ -261,7 +288,20 @@ In Telegram:
 | *(voice note)* | Transcribed by Gemini, then saved the same way |
 | `/ask` | Pull today's primed question now |
 | `/post` | Generate this week's three angles now |
+| `/compose <what you want>` | Writes that post now, from your real material |
 | `/status` | Entry count, drafts waiting, GitHub wiring |
+
+Every draft arrives with **Approve / Rewrite / Reject**. Reject asks what was
+wrong and reworks it from your answer rather than binning it — a rejection with
+a reason is training data, a silent one is nothing. `/skip` drops it for real.
+
+For "write a post about this, this and this", use `/compose` in the dashboard:
+tick the exact commits, journal entries and articles it should draw from, say
+what you want, pick LinkedIn / Twitter thread / blog outline.
+
+A daily job keeps up to three drafts warm so there is always something waiting
+for a verdict. It stops generating once the queue is full, so it cannot spam
+you.
 
 In the web app: `/journal`, `/commits`, `/trends`, `/posts`, `/settings`.
 

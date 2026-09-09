@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { userProfiles } from '@/lib/db/schema'
 import { isNotNull } from 'drizzle-orm'
+import { usableAccounts } from '@/lib/jobs/accounts'
 import { ingestCommits } from '@/lib/jobs/github'
+import { ingestRepos } from '@/lib/jobs/repos'
 import { ingestTrends } from '@/lib/jobs/trends'
 import { sendCheckin, sendOpinionPrompt } from '@/lib/jobs/checkin'
-import { proposeAngles } from '@/lib/jobs/weekly'
+import { proposeAngles, topUpQueue } from '@/lib/jobs/weekly'
 
 export const maxDuration = 60
 export const dynamic = 'force-dynamic'
@@ -13,17 +15,20 @@ export const dynamic = 'force-dynamic'
 // Vercel cron sends `Authorization: Bearer $CRON_SECRET` automatically.
 // GitHub Actions sends `?secret=` — same check, either way in.
 function authorized(req: Request) {
-  const url = new URL(req.url)
   return (
     req.headers.get('authorization') === `Bearer ${process.env.CRON_SECRET}` ||
-    url.searchParams.get('secret') === process.env.CRON_SECRET
+    new URL(req.url).searchParams.get('secret') === process.env.CRON_SECRET
   )
 }
+
+// Split into three jobs rather than one: each has to finish inside the 60s
+// function budget, and repo summarising plus draft generation together do not.
+type Job = 'daily' | 'weekly' | 'drafts'
 
 export async function GET(req: Request) {
   if (!authorized(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const job = new URL(req.url).searchParams.get('job') ?? 'daily'
+  const job = (new URL(req.url).searchParams.get('job') ?? 'daily') as Job
   const users = await db.select().from(userProfiles).where(isNotNull(userProfiles.telegramChatId))
   const log: Record<string, unknown>[] = []
 
@@ -32,9 +37,12 @@ export async function GET(req: Request) {
     try {
       if (job === 'weekly') {
         entry.angles = await proposeAngles(user)
+      } else if (job === 'drafts') {
+        entry.queue = await topUpQueue(user)
       } else {
-        if (user.githubUsername) {
-          entry.commits = await ingestCommits(user.id, user.githubUsername)
+        for (const account of await usableAccounts(user.id)) {
+          entry[`commits:${account.label}`] = await ingestCommits(user.id, account)
+          entry[`repos:${account.label}`] = await ingestRepos(user.id, account)
         }
         entry.trends = await ingestTrends(user.id)
         entry.checkin = await sendCheckin(user)

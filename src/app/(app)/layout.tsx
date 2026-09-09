@@ -7,6 +7,7 @@ const NAV = [
   ['/journal', 'Journal'],
   ['/commits', 'Commits'],
   ['/trends', 'Trends'],
+  ['/compose', 'Compose'],
   ['/posts', 'Drafts'],
   ['/settings', 'Settings'],
 ]

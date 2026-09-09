@@ -1,8 +1,9 @@
 import { db } from '@/lib/db'
-import { styleReferences } from '@/lib/db/schema'
+import { githubAccounts, styleReferences } from '@/lib/db/schema'
 import { desc, eq } from 'drizzle-orm'
 import { currentUser } from '@/lib/auth'
-import { addStyleSet, deleteStyleSet, saveSettings, unlinkTelegram } from './actions'
+import { addGithubAccount, addStyleSet, deleteStyleSet, removeGithubAccount, saveSettings, unlinkTelegram } from './actions'
+import { missingTokenFor, tokenFor } from '@/lib/jobs/accounts'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,9 +12,14 @@ const btn = 'text-xs rounded-lg border px-3 py-1.5 hover:bg-zinc-100 dark:hover:
 
 export default async function SettingsPage() {
   const { profile } = await currentUser()
-  const refs = await db.select().from(styleReferences)
-    .where(eq(styleReferences.userId, profile.id))
-    .orderBy(desc(styleReferences.createdAt))
+  const [refs, accounts] = await Promise.all([
+    db.select().from(styleReferences)
+      .where(eq(styleReferences.userId, profile.id))
+      .orderBy(desc(styleReferences.createdAt)),
+    db.select().from(githubAccounts)
+      .where(eq(githubAccounts.userId, profile.id))
+      .orderBy(desc(githubAccounts.createdAt)),
+  ])
 
   return (
     <div className="space-y-8">
@@ -62,6 +68,56 @@ export default async function SettingsPage() {
             <input name="contentGoal" defaultValue={profile.contentGoal ?? ''} className={field} />
           </label>
           <div className="sm:col-span-2"><button className={btn}>Save</button></div>
+        </form>
+      </section>
+
+      {/* GitHub accounts */}
+      <section className="rounded-xl border bg-white dark:bg-zinc-900 p-5 space-y-4">
+        <div>
+          <h2 className="text-sm font-medium">GitHub accounts</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Personal and work, each with its own token. Tokens are never stored here —
+            each account reads <code>GITHUB_TOKEN_&lt;LABEL&gt;</code> from the environment.
+            Mark work accounts <strong>confidential</strong> and their repo names, paths and
+            README contents stay out of every prompt and every generated post.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          {accounts.map(a => (
+            <div key={a.id} className="flex items-center gap-3 rounded-lg border p-3 text-sm flex-wrap">
+              <span className="font-medium">{a.label}</span>
+              <span className="text-muted-foreground">{a.username}</span>
+              {a.confidential && (
+                <span className="rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 text-xs">
+                  confidential
+                </span>
+              )}
+              {tokenFor(a.label)
+                ? <span className="text-xs text-emerald-600">token found</span>
+                : <span className="text-xs text-red-500">set {missingTokenFor(a)}</span>}
+              <form action={removeGithubAccount} className="ml-auto">
+                <input type="hidden" name="id" value={a.id} />
+                <button className={btn}>Remove</button>
+              </form>
+            </div>
+          ))}
+        </div>
+
+        <form action={addGithubAccount} className="grid sm:grid-cols-3 gap-3 items-end">
+          <label className="space-y-1">
+            <span className="text-xs text-muted-foreground">Label</span>
+            <input name="label" placeholder="work" className={field} required />
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs text-muted-foreground">GitHub username</span>
+            <input name="username" placeholder="yash-at-company" className={field} required />
+          </label>
+          <label className="flex items-center gap-2 text-sm pb-2">
+            <input type="checkbox" name="confidential" defaultChecked />
+            <span>Confidential</span>
+          </label>
+          <div className="sm:col-span-3"><button className={btn}>Add account</button></div>
         </form>
       </section>
 

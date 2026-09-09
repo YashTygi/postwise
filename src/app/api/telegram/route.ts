@@ -5,7 +5,7 @@ import { and, count, eq, gte, isNotNull } from 'drizzle-orm'
 import { answerCallback, downloadFile, send } from '@/lib/telegram'
 import { transcribe } from '@/lib/ai'
 import { localDate, offerTrendTopics, pickTrend, recordAnswer, sendCheckin } from '@/lib/jobs/checkin'
-import { generateDraft, proposeAngles, rewriteDraft, type Angle } from '@/lib/jobs/weekly'
+import { deliverDraft, generateDraft, generateFromBrief, proposeAngles, rewriteDraft, type Angle } from '@/lib/jobs/weekly'
 
 export const maxDuration = 60
 
@@ -23,6 +23,19 @@ async function handleCommand(user: UserProfile, chatId: string, text: string): P
       return true
     case '/post':
       await proposeAngles(user)
+      return true
+    case '/compose': {
+      const brief = text.slice('/compose'.length).trim()
+      if (!brief) {
+        await send(chatId, 'Tell me what to write, e.g.\n/compose a post about the caching bug and why stale-while-revalidate made it worse')
+        return true
+      }
+      await send(chatId, 'Writing it…')
+      await generateFromBrief(user, brief)
+      return true
+    }
+    case '/compose_help':
+      await send(chatId, 'Pick exact commits, entries and articles on the /compose page in the dashboard, or describe it here with /compose <what you want>.')
       return true
     case '/status': {
       const week = new Date(Date.now() - 7 * 864e5)
@@ -88,12 +101,19 @@ async function handleCallback(user: UserProfile, chatId: string, data: string, q
     return
   }
 
-  if (action === 'rewrite') {
+  if (action === 'rewrite' || action === 'reject') {
+    // A rejection without a reason teaches the system nothing. Both paths ask
+    // what was wrong; reject additionally marks the draft so it is not reused.
+    if (action === 'reject') {
+      await db.update(posts).set({ status: 'rejected' }).where(eq(posts.id, arg))
+    }
     await db.update(userProfiles)
       .set({ pendingContext: { kind: 'edit', postId: arg } })
       .where(eq(userProfiles.id, user.id))
     await answerCallback(queryId)
-    await send(chatId, "What should change? e.g. 'too long', 'more technical', 'cut the last paragraph'.")
+    await send(chatId, action === 'reject'
+      ? "Rejected. What was wrong with it? I'll rework it from your answer — or send /skip to drop it."
+      : "What should change? e.g. 'too long', 'more technical', 'cut the last paragraph'.")
     return
   }
 
@@ -158,13 +178,14 @@ export async function POST(req: Request) {
     const pending = user.pendingContext as { kind: string; postId?: string } | null
     if (pending?.kind === 'edit' && pending.postId) {
       await db.update(userProfiles).set({ pendingContext: null }).where(eq(userProfiles.id, user.id))
+      if (body.trim() === '/skip') {
+        await send(chatId, 'Dropped.')
+        return NextResponse.json({ ok: true })
+      }
       const updated = await rewriteDraft(user, pending.postId, body)
       if (!updated) await send(chatId, 'Could not find that draft.')
       else if ((updated.rewriteCount ?? 0) > 3) await send(chatId, 'Three rewrites is the cap — edit it directly in the dashboard.')
-      else await send(chatId, updated.content, [[
-        { text: 'Approve', callback_data: `approve:${updated.id}` },
-        { text: 'Rewrite', callback_data: `rewrite:${updated.id}` },
-      ]])
+      else await deliverDraft(user, updated)
       return NextResponse.json({ ok: true })
     }
 
