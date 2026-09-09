@@ -31,7 +31,7 @@ export default async function LoginPage({
           <LinkedInButton mode="login" />
 
           <p className="text-center text-xs text-muted-foreground">
-            New here? We'll set up your profile after sign-in.
+            New here? We&apos;ll set up your profile after sign-in.
           </p>
 
           {error && (

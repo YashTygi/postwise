@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { currentUser } from '@/lib/auth'
 import { signOut } from '@/app/auth/actions'
+import { SubmitButton } from '@/components/submit-button'
 
 const NAV = [
   ['/dashboard', 'Overview'],
@@ -26,7 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             ))}
           </nav>
           <form action={signOut} className="ml-auto">
-            <button className="text-xs text-muted-foreground hover:text-foreground">Sign out</button>
+            <SubmitButton className="text-xs text-muted-foreground hover:text-foreground" pendingText="Signing out…">Sign out</SubmitButton>
           </form>
         </div>
       </header>

@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { posts } from '@/lib/db/schema'
 import { desc, eq } from 'drizzle-orm'
 import { currentUser } from '@/lib/auth'
+import { SubmitButton } from '@/components/submit-button'
 import { saveEdit, setStatus } from './actions'
 
 export const dynamic = 'force-dynamic'
@@ -50,9 +51,9 @@ export default async function PostsPage() {
                 placeholder="Your edited version — this is what gets used as a style example next time."
                 className="w-full rounded-lg border bg-transparent p-3 text-sm"
               />
-              <button className="text-xs rounded-lg border px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+              <SubmitButton className="text-xs rounded-lg border px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800" pendingText="Saving…">
                 Save edit
-              </button>
+              </SubmitButton>
             </form>
 
             <div className="flex gap-2">
@@ -60,9 +61,9 @@ export default async function PostsPage() {
                 <form key={s} action={setStatus}>
                   <input type="hidden" name="id" value={p.id} />
                   <input type="hidden" name="status" value={s} />
-                  <button className="text-xs rounded-lg border px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 capitalize">
+                  <SubmitButton className="text-xs rounded-lg border px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 capitalize">
                     {s}
-                  </button>
+                  </SubmitButton>
                 </form>
               ))}
             </div>

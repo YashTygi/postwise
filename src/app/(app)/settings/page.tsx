@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { githubAccounts, styleReferences } from '@/lib/db/schema'
 import { desc, eq } from 'drizzle-orm'
 import { currentUser } from '@/lib/auth'
+import { SubmitButton } from '@/components/submit-button'
 import { addGithubAccount, addStyleSet, deleteStyleSet, removeGithubAccount, saveSettings, unlinkTelegram } from './actions'
 import { missingTokenFor, tokenFor } from '@/lib/jobs/accounts'
 
@@ -31,7 +32,7 @@ export default async function SettingsPage() {
         {profile.telegramChatId ? (
           <div className="flex items-center gap-3">
             <p className="text-sm text-muted-foreground">Linked to chat {profile.telegramChatId}.</p>
-            <form action={unlinkTelegram}><button className={btn}>Unlink</button></form>
+            <form action={unlinkTelegram}><SubmitButton className={btn} pendingText="Unlinking…">Unlink</SubmitButton></form>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
@@ -67,7 +68,7 @@ export default async function SettingsPage() {
             <span className="text-xs text-muted-foreground">Content goal</span>
             <input name="contentGoal" defaultValue={profile.contentGoal ?? ''} className={field} />
           </label>
-          <div className="sm:col-span-2"><button className={btn}>Save</button></div>
+          <div className="sm:col-span-2"><SubmitButton className={btn} pendingText="Saving…">Save</SubmitButton></div>
         </form>
       </section>
 
@@ -98,7 +99,7 @@ export default async function SettingsPage() {
                 : <span className="text-xs text-red-500">set {missingTokenFor(a)}</span>}
               <form action={removeGithubAccount} className="ml-auto">
                 <input type="hidden" name="id" value={a.id} />
-                <button className={btn}>Remove</button>
+                <SubmitButton className={btn} pendingText="Removing…">Remove</SubmitButton>
               </form>
             </div>
           ))}
@@ -117,7 +118,7 @@ export default async function SettingsPage() {
             <input type="checkbox" name="confidential" defaultChecked />
             <span>Confidential</span>
           </label>
-          <div className="sm:col-span-3"><button className={btn}>Add account</button></div>
+          <div className="sm:col-span-3"><SubmitButton className={btn} pendingText="Adding…">Add account</SubmitButton></div>
         </form>
       </section>
 
@@ -142,7 +143,7 @@ export default async function SettingsPage() {
           </div>
           <textarea name="pastedPosts" rows={8} className={field}
             placeholder={'Paste post 1\n\n---\n\nPaste post 2\n\n---\n\nPaste post 3'} />
-          <button className={btn}>Add set &amp; extract rubric</button>
+          <SubmitButton className={btn} pendingText="Extracting rubric… (~15s)">Add set &amp; extract rubric</SubmitButton>
         </form>
 
         <div className="space-y-2">
@@ -158,7 +159,7 @@ export default async function SettingsPage() {
               </pre>
               <form action={deleteStyleSet} className="mt-2">
                 <input type="hidden" name="id" value={r.id} />
-                <button className={btn}>Delete</button>
+                <SubmitButton className={btn} pendingText="Deleting…">Delete</SubmitButton>
               </form>
             </details>
           ))}

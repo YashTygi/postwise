@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { submitOnboarding } from './actions'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { SubmitButton } from '@/components/submit-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -123,9 +124,12 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" size="lg">
+              <SubmitButton
+                className={buttonVariants({ size: 'lg', className: 'w-full' })}
+                pendingText="Analysing your style… this takes about 15 seconds"
+              >
                 Analyse style and continue →
-              </Button>
+              </SubmitButton>
             </form>
           </CardContent>
         </Card>

@@ -25,6 +25,15 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
+  // "/" is a signpost, not a page. Redirecting here rather than in the page
+  // component makes it a real 307 with nothing rendered — doing it in the page
+  // streams a loading shell first and flashes before it moves.
+  if (request.nextUrl.pathname === '/') {
+    const url = request.nextUrl.clone()
+    url.pathname = user ? '/dashboard' : '/login'
+    return NextResponse.redirect(url)
+  }
+
   // Protect these routes — redirect to login if not authenticated
   const protectedPaths = ['/dashboard', '/onboarding', '/posts', '/journal', '/commits', '/trends', '/settings', '/compose']
   const isProtected = protectedPaths.some(p => request.nextUrl.pathname.startsWith(p))

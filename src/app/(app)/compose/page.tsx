@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { commits, dailyEntries, trendItems } from '@/lib/db/schema'
 import { and, desc, eq, isNotNull } from 'drizzle-orm'
 import { currentUser } from '@/lib/auth'
+import { SubmitButton } from '@/components/submit-button'
 import { compose } from './actions'
 
 export const dynamic = 'force-dynamic'
@@ -59,9 +60,12 @@ export default async function ComposePage() {
             <option value="twitter">Twitter thread</option>
             <option value="blog">Blog outline</option>
           </select>
-          <button className="text-sm rounded-lg border px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+          <SubmitButton
+            className="text-sm rounded-lg border px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            pendingText="Writing your post…"
+          >
             Generate
-          </button>
+          </SubmitButton>
           <span className="text-xs text-muted-foreground">Takes ~20s, lands in Drafts and Telegram.</span>
         </div>
       </div>

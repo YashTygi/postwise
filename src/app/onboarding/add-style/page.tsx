@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { addStyleReference } from '../actions'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { SubmitButton } from '@/components/submit-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -71,7 +72,12 @@ export default function AddStylePage() {
                 )}
               </div>
 
-              <Button type="submit" className="w-full">Save style reference →</Button>
+              <SubmitButton
+                className={buttonVariants({ className: 'w-full' })}
+                pendingText="Extracting the rubric…"
+              >
+                Save style reference →
+              </SubmitButton>
             </form>
           </CardContent>
         </Card>
