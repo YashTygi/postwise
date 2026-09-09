@@ -62,5 +62,12 @@ export async function GET(req: Request) {
     log.push(entry)
   }
 
-  return NextResponse.json({ ok: true, job, ran: log })
+  // Return 500 when any user's run errored. A 200 with the error buried in the
+  // body makes the GitHub Actions step green, which is how a broken drafts job
+  // ran unnoticed.
+  const failed = log.filter(l => l.error)
+  return NextResponse.json(
+    { ok: failed.length === 0, job, ran: log },
+    { status: failed.length ? 500 : 200 },
+  )
 }
