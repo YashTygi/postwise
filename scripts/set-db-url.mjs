@@ -1,10 +1,10 @@
 // Build, verify and store DATABASE_URL without hand-editing.
 //
-//   npm run db:url
+//   npm run db:url -- <project-ref>
 //
-// Reads the password from stdin (never argv — argv is visible in `ps` and in
-// your shell history), percent-encodes it, tries each candidate host, and keeps
-// the first one that actually authenticates.
+// Reads the password from a muted stdin prompt — never argv (visible in `ps`),
+// never echoed (visible in scrollback and screenshots). Percent-encodes it,
+// tries each candidate host, keeps the first that actually authenticates.
 import fs from 'node:fs'
 import readline from 'node:readline'
 import pg from 'pg'
@@ -12,8 +12,19 @@ import pg from 'pg'
 const REF = process.env.SUPABASE_REF || process.argv[2]
 if (!REF) { console.error('usage: npm run db:url -- <project-ref>   (find it in your Supabase URL)'); process.exit(1) }
 
+// Muted prompt: readline echoes by default, which puts the password on screen
+// and into terminal scrollback, screenshots and screen shares.
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true })
-const password = await new Promise(res => rl.question('Database password (Settings → Database → Reset database password): ', a => { rl.close(); res(a.trim()) }))
+const password = await new Promise(res => {
+  const onData = () => rl.output.write('\x1b[2K\r Database password: ')
+  rl.question(' Database password: ', a => {
+    rl.input.removeListener('data', onData)
+    rl.close()
+    process.stdout.write('\n')
+    res(a.trim())
+  })
+  rl.input.on('data', onData)
+})
 if (!password) { console.error('nothing entered'); process.exit(1) }
 if (/^\[.*\]$/.test(password)) { console.error('that is the placeholder from the dashboard, not a password'); process.exit(1) }
 
